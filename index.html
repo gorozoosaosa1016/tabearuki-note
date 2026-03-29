@@ -1,0 +1,1416 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>食べ歩きノート</title>
+
+<!-- Leaflet.js（地図） -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+/* ====================================
+   CSS - シンプルモダン（白×黒×アクセント）
+   ==================================== */
+
+:root {
+  --bg: #f5f5f5;
+  --card-bg: #ffffff;
+  --text: #1a1a1a;
+  --text-sub: #777777;
+  --accent: #ff6b35;
+  --accent-light: #fff0ea;
+  --border: #e8e8e8;
+  --danger: #e74c3c;
+  --success: #2ecc71;
+  --tab-bg: #ffffff;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --radius: 14px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 80px;
+  overflow-x: hidden;
+}
+
+/* ヘッダー */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.header-icon {
+  font-size: 22px;
+}
+
+/* タブバー（下部） */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--tab-bg);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  font-size: 10px;
+  color: var(--text-sub);
+  cursor: pointer;
+  padding: 4px 12px;
+  transition: color 0.2s;
+}
+
+.tab-item.active {
+  color: var(--accent);
+}
+
+.tab-item .tab-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* ページ */
+.page {
+  display: none;
+  padding: 16px;
+  animation: fadeIn 0.25s ease;
+}
+
+.page.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* セクションタイトル */
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 20px 0 10px 4px;
+}
+
+.section-title:first-child {
+  margin-top: 4px;
+}
+
+/* カード */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border: 1px solid var(--border);
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.card-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card-genre {
+  font-size: 11px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.card-info {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.card-info span::before {
+  margin-right: 4px;
+}
+
+.card-rating {
+  color: var(--accent);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.card-date {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-top: 4px;
+}
+
+/* ジャンルカード */
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.genre-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+  border: 1px solid var(--border);
+}
+
+.genre-card:active {
+  transform: scale(0.97);
+}
+
+.genre-card .genre-emoji {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.genre-card .genre-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.genre-card .genre-count {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+/* フォーム */
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--card-bg);
+  color: var(--text);
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-group textarea {
+  height: 80px;
+  resize: vertical;
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+  font-family: inherit;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--text);
+  color: #fff;
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+
+.btn + .btn {
+  margin-top: 10px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+}
+
+/* モーダル */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeInOverlay 0.2s ease;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px 20px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.modal-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+
+.modal h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+/* 詳細画面 */
+.detail-back {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.detail-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 12px 0 4px;
+}
+
+.detail-genre {
+  display: inline-block;
+  font-size: 12px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.detail-row {
+  display: flex;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.detail-row-label {
+  color: var(--text-sub);
+  width: 80px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.detail-row-value {
+  flex: 1;
+  font-weight: 400;
+}
+
+.detail-map {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  margin: 16px 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.detail-photo {
+  width: 100%;
+  border-radius: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+}
+
+.detail-actions {
+  margin-top: 20px;
+}
+
+/* 検索バー */
+.search-bar {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 12px 14px 12px 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 15px;
+  background: var(--card-bg);
+  font-family: inherit;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-bar::before {
+  content: '🔍';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+}
+
+/* フィルター */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--card-bg);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.filter-chip.active {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
+}
+
+/* ローディング */
+.loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-sub);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 空状態 */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-sub);
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  font-size: 14px;
+}
+
+/* 評価選択 */
+.rating-select {
+  display: flex;
+  gap: 8px;
+}
+
+.rating-star {
+  font-size: 28px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  filter: grayscale(1);
+  transition: filter 0.15s, transform 0.15s;
+}
+
+.rating-star.active {
+  filter: grayscale(0);
+  transform: scale(1.15);
+}
+
+/* トースト通知 */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: var(--text);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 300;
+  transition: transform 0.3s ease;
+  white-space: nowrap;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* カウントバッジ */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+/* 画像アップロード */
+.image-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.image-upload-area:hover {
+  border-color: var(--accent);
+}
+
+.image-upload-area.has-image {
+  padding: 8px;
+  border-style: solid;
+}
+
+.image-upload-area img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.image-upload-area .upload-text {
+  color: var(--text-sub);
+  font-size: 14px;
+}
+
+.image-upload-area .upload-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+</style>
+</head>
+<body>
+
+<!-- トースト通知 -->
+<div class="toast" id="toast"></div>
+
+<!-- ヘッダー -->
+<div class="header">
+  <h1>🍽 食べ歩きノート</h1>
+  <span class="header-icon" id="refreshBtn" style="cursor:pointer;">↻</span>
+</div>
+
+<!-- ====== ページ：ジャンル ====== -->
+<div class="page active" id="page-genre">
+  <div class="loading" id="genre-loading">
+    <div class="loading-spinner"></div>
+    <p>読み込み中...</p>
+  </div>
+  <div class="genre-grid" id="genre-grid"></div>
+</div>
+
+<!-- ====== ページ：行きたい ====== -->
+<div class="page" id="page-want">
+  <div class="search-bar">
+    <input type="text" placeholder="お店を検索..." id="search-want" oninput="renderWantList()">
+  </div>
+  <div class="filter-bar" id="filter-want"></div>
+  <div id="want-list"></div>
+</div>
+
+<!-- ====== ページ：行った ====== -->
+<div class="page" id="page-done">
+  <div class="search-bar">
+    <input type="text" placeholder="お店を検索..." id="search-done" oninput="renderDoneList()">
+  </div>
+  <div class="filter-bar" id="filter-done"></div>
+  <div id="done-list"></div>
+</div>
+
+<!-- ====== ページ：登録 ====== -->
+<div class="page" id="page-add">
+  <div style="background:var(--card-bg);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);">
+    <h2 style="font-size:18px;margin-bottom:20px;">新しいお店を登録</h2>
+    <div class="form-group">
+      <label>店名 *</label>
+      <input type="text" id="add-name" placeholder="お店の名前">
+    </div>
+    <div class="form-group">
+      <label>ジャンル *</label>
+      <select id="add-genre">
+        <option value="">選択してください</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>エリア</label>
+      <input type="text" id="add-area" placeholder="例：渋谷、新宿">
+    </div>
+    <div class="form-group">
+      <label>住所</label>
+      <input type="text" id="add-address" placeholder="例：東京都渋谷区〇〇1-2-3">
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <textarea id="add-memo" placeholder="気になるポイントなど"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="addShop()">登録する</button>
+  </div>
+</div>
+
+<!-- ====== ページ：詳細 ====== -->
+<div class="page" id="page-detail">
+  <button class="detail-back" onclick="goBackFromDetail()">← 戻る</button>
+  <div id="detail-content"></div>
+</div>
+
+<!-- ====== ページ：ジャンル別一覧 ====== -->
+<div class="page" id="page-genre-list">
+  <button class="detail-back" onclick="showPage('genre')">← ジャンル一覧</button>
+  <h2 id="genre-list-title" style="font-size:20px;font-weight:700;margin:12px 0 16px;"></h2>
+  <div id="genre-list-content"></div>
+</div>
+
+<!-- ====== モーダル：行った！報告 ====== -->
+<div class="modal-overlay" id="modal-done">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>行った！を記録する</h2>
+    <div class="form-group">
+      <label>訪問日</label>
+      <input type="date" id="done-date">
+    </div>
+    <div class="form-group">
+      <label>評価</label>
+      <div class="rating-select" id="done-rating">
+        <button class="rating-star" data-value="1" onclick="setRating(1)">⭐</button>
+        <button class="rating-star" data-value="2" onclick="setRating(2)">⭐</button>
+        <button class="rating-star" data-value="3" onclick="setRating(3)">⭐</button>
+        <button class="rating-star" data-value="4" onclick="setRating(4)">⭐</button>
+        <button class="rating-star" data-value="5" onclick="setRating(5)">⭐</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>感想・メモ</label>
+      <textarea id="done-memo" placeholder="どうだった？"></textarea>
+    </div>
+    <div class="form-group">
+      <label>写真（URL）</label>
+      <input type="url" id="done-photo" placeholder="画像のURLを貼り付け">
+    </div>
+    <button class="btn btn-accent" onclick="submitDone()">記録する</button>
+    <button class="btn btn-outline" onclick="closeModal('modal-done')">キャンセル</button>
+  </div>
+</div>
+
+<!-- ====== モーダル：編集 ====== -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2>お店の情報を編集</h2>
+    <div class="form-group">
+      <label>評価</label>
+      <div class="rating-select" id="edit-rating">
+        <button class="rating-star" data-value="1" onclick="setEditRating(1)">⭐</button>
+        <button class="rating-star" data-value="2" onclick="setEditRating(2)">⭐</button>
+        <button class="rating-star" data-value="3" onclick="setEditRating(3)">⭐</button>
+        <button class="rating-star" data-value="4" onclick="setEditRating(4)">⭐</button>
+        <button class="rating-star" data-value="5" onclick="setEditRating(5)">⭐</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>メモ</label>
+      <textarea id="edit-memo"></textarea>
+    </div>
+    <div class="form-group">
+      <label>写真（URL）</label>
+      <input type="url" id="edit-photo" placeholder="画像のURLを貼り付け">
+    </div>
+    <button class="btn btn-primary" onclick="submitEdit()">更新する</button>
+    <button class="btn btn-outline" onclick="closeModal('modal-edit')">キャンセル</button>
+  </div>
+</div>
+
+<!-- タブバー -->
+<div class="tab-bar">
+  <button class="tab-item active" data-page="genre" onclick="showPage('genre')">
+    <span class="tab-icon">🍽</span>
+    ジャンル
+  </button>
+  <button class="tab-item" data-page="want" onclick="showPage('want')">
+    <span class="tab-icon">📋</span>
+    行きたい
+  </button>
+  <button class="tab-item" data-page="done" onclick="showPage('done')">
+    <span class="tab-icon">✅</span>
+    行った
+  </button>
+  <button class="tab-item" data-page="add" onclick="showPage('add')">
+    <span class="tab-icon">➕</span>
+    登録
+  </button>
+</div>
+
+<script>
+// ====================================
+// JavaScript - アプリ本体
+// ====================================
+
+// === GAS API URL ===
+const API_URL = 'https://script.google.com/macros/s/AKfycbxtS5bobi8o3mNNiy0-zP6HvimRHpdhgrESUaf4OzhygtLwVl0BYltNDOba8_mwfa6n/exec';
+
+// === データ ===
+let shops = [];
+let genres = [];
+let currentShop = null;
+let currentRating = 0;
+let currentEditRating = 0;
+let currentDetailFrom = 'want';
+let currentGenreFilter = {want: 'すべて', done: 'すべて'};
+
+// === ジャンル絵文字マッピング ===
+const genreEmoji = {
+  'ラーメン': '🍜', 'カフェ': '☕', '焼肉': '🥩', '寿司': '🍣',
+  'イタリアン': '🍝', '中華': '🥟', '和食': '🍱', 'カレー': '🍛',
+  'パン・スイーツ': '🍰', 'その他': '🍴'
+};
+
+// === 初期化 ===
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+  // 今日の日付をデフォルトに
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('done-date').value = today;
+});
+
+// === データ読み込み ===
+async function loadData() {
+  document.getElementById('genre-loading').style.display = 'block';
+  try {
+    const [shopsRes, genresRes] = await Promise.all([
+      fetchAPI({action: 'getAll'}),
+      fetchAPI({action: 'getGenres'})
+    ]);
+
+    if (shopsRes.success) shops = shopsRes.shops;
+    if (genresRes.success) genres = genresRes.genres;
+
+    renderAll();
+    showToast('データを読み込みました');
+  } catch (e) {
+    showToast('読み込みに失敗しました');
+    console.error(e);
+  }
+  document.getElementById('genre-loading').style.display = 'none';
+}
+
+// === API通信 ===
+async function fetchAPI(params, method = 'GET') {
+  if (method === 'GET') {
+    const query = new URLSearchParams(params).toString();
+    const res = await fetch(`${API_URL}?${query}`);
+    return await res.json();
+  } else {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify(params)
+    });
+    return await res.json();
+  }
+}
+
+// === ページ切り替え ===
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  const tab = document.querySelector(`.tab-item[data-page="${page}"]`);
+  if (tab) tab.classList.add('active');
+}
+
+// === 全体レンダリング ===
+function renderAll() {
+  renderGenreGrid();
+  renderFilterBars();
+  renderWantList();
+  renderDoneList();
+  populateGenreSelect();
+}
+
+// === ジャンルグリッド ===
+function renderGenreGrid() {
+  const grid = document.getElementById('genre-grid');
+  const counts = {};
+  genres.forEach(g => counts[g] = 0);
+  shops.forEach(s => {
+    if (counts[s['ジャンル']] !== undefined) counts[s['ジャンル']]++;
+  });
+
+  grid.innerHTML = genres.map(g => `
+    <div class="genre-card" onclick="showGenreList('${g}')">
+      <span class="genre-emoji">${genreEmoji[g] || '🍴'}</span>
+      <div class="genre-name">${g}</div>
+      <div class="genre-count">${counts[g] || 0}件</div>
+    </div>
+  `).join('');
+}
+
+// === ジャンル別一覧 ===
+function showGenreList(genre) {
+  const filtered = shops.filter(s => s['ジャンル'] === genre);
+  const title = document.getElementById('genre-list-title');
+  const content = document.getElementById('genre-list-content');
+
+  title.textContent = `${genreEmoji[genre] || '🍴'} ${genre}`;
+
+  if (filtered.length === 0) {
+    content.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <p>まだお店が登録されていません</p>
+      </div>`;
+  } else {
+    const wantShops = filtered.filter(s => s['ステータス'] === '行きたい');
+    const doneShops = filtered.filter(s => s['ステータス'] === '行った');
+    let html = '';
+
+    if (wantShops.length > 0) {
+      html += `<div class="section-title">行きたい (${wantShops.length})</div>`;
+      html += wantShops.map(s => renderCard(s)).join('');
+    }
+    if (doneShops.length > 0) {
+      html += `<div class="section-title">行った (${doneShops.length})</div>`;
+      html += doneShops.map(s => renderCard(s)).join('');
+    }
+    content.innerHTML = html;
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-genre-list').classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab-item[data-page="genre"]').classList.add('active');
+}
+
+// === フィルターバー ===
+function renderFilterBars() {
+  ['want', 'done'].forEach(type => {
+    const bar = document.getElementById(`filter-${type}`);
+    const allGenres = ['すべて', ...genres];
+    bar.innerHTML = allGenres.map(g => `
+      <button class="filter-chip ${currentGenreFilter[type] === g ? 'active' : ''}"
+              onclick="setGenreFilter('${type}', '${g}')">
+        ${g}
+      </button>
+    `).join('');
+  });
+}
+
+function setGenreFilter(type, genre) {
+  currentGenreFilter[type] = genre;
+  renderFilterBars();
+  if (type === 'want') renderWantList();
+  else renderDoneList();
+}
+
+// === 行きたいリスト ===
+function renderWantList() {
+  const container = document.getElementById('want-list');
+  const search = document.getElementById('search-want').value.toLowerCase();
+  let filtered = shops.filter(s => s['ステータス'] === '行きたい');
+
+  if (currentGenreFilter.want !== 'すべて') {
+    filtered = filtered.filter(s => s['ジャンル'] === currentGenreFilter.want);
+  }
+  if (search) {
+    filtered = filtered.filter(s =>
+      (s['店名'] || '').toLowerCase().includes(search) ||
+      (s['エリア'] || '').toLowerCase().includes(search)
+    );
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">📋</span>
+        <p>行きたいお店がありません<br>「登録」タブから追加しましょう！</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(s => renderCard(s)).join('');
+}
+
+// === 行ったリスト ===
+function renderDoneList() {
+  const container = document.getElementById('done-list');
+  const search = document.getElementById('search-done').value.toLowerCase();
+  let filtered = shops.filter(s => s['ステータス'] === '行った');
+
+  if (currentGenreFilter.done !== 'すべて') {
+    filtered = filtered.filter(s => s['ジャンル'] === currentGenreFilter.done);
+  }
+  if (search) {
+    filtered = filtered.filter(s =>
+      (s['店名'] || '').toLowerCase().includes(search) ||
+      (s['エリア'] || '').toLowerCase().includes(search)
+    );
+  }
+
+  // 訪問日の新しい順にソート
+  filtered.sort((a, b) => {
+    const da = a['訪問日'] ? new Date(a['訪問日']) : new Date(0);
+    const db = b['訪問日'] ? new Date(b['訪問日']) : new Date(0);
+    return db - da;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">✅</span>
+        <p>まだ行ったお店がありません</p>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(s => renderCard(s)).join('');
+}
+
+// === カード描画 ===
+function renderCard(shop) {
+  const rating = shop['評価'] || '';
+  const date = shop['訪問日'] ? formatDate(shop['訪問日']) : '';
+  const isDone = shop['ステータス'] === '行った';
+
+  return `
+    <div class="card" onclick="showDetail(${shop.row})">
+      <div class="card-header">
+        <span class="card-name">${escapeHtml(shop['店名'])}</span>
+        <span class="card-genre">${escapeHtml(shop['ジャンル'])}</span>
+      </div>
+      <div class="card-info">
+        ${shop['エリア'] ? `<span>📍 ${escapeHtml(shop['エリア'])}</span>` : ''}
+      </div>
+      ${isDone && rating ? `<div class="card-rating">${escapeHtml(rating)}</div>` : ''}
+      ${isDone && date ? `<div class="card-date">🗓 ${date}</div>` : ''}
+    </div>`;
+}
+
+// === 詳細画面 ===
+function showDetail(row) {
+  const shop = shops.find(s => s.row === row);
+  if (!shop) return;
+
+  currentShop = shop;
+
+  // どのページから来たか記録
+  const activePage = document.querySelector('.page.active');
+  if (activePage) {
+    currentDetailFrom = activePage.id.replace('page-', '');
+  }
+
+  const isDone = shop['ステータス'] === '行った';
+  const content = document.getElementById('detail-content');
+
+  let html = `
+    <h2 class="detail-title">${escapeHtml(shop['店名'])}</h2>
+    <span class="detail-genre">${genreEmoji[shop['ジャンル']] || '🍴'} ${escapeHtml(shop['ジャンル'])}</span>
+
+    <div class="detail-row">
+      <span class="detail-row-label">エリア</span>
+      <span class="detail-row-value">${escapeHtml(shop['エリア'] || '未設定')}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-row-label">住所</span>
+      <span class="detail-row-value">${escapeHtml(shop['住所'] || '未設定')}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-row-label">ステータス</span>
+      <span class="detail-row-value">${isDone ? '✅ 行った' : '📋 行きたい'}</span>
+    </div>`;
+
+  if (isDone) {
+    html += `
+    <div class="detail-row">
+      <span class="detail-row-label">訪問日</span>
+      <span class="detail-row-value">${shop['訪問日'] ? formatDate(shop['訪問日']) : '未記録'}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-row-label">評価</span>
+      <span class="detail-row-value">${escapeHtml(shop['評価'] || '未評価')}</span>
+    </div>`;
+  }
+
+  if (shop['メモ']) {
+    html += `
+    <div class="detail-row">
+      <span class="detail-row-label">メモ</span>
+      <span class="detail-row-value">${escapeHtml(shop['メモ'])}</span>
+    </div>`;
+  }
+
+  // 地図表示（住所がある場合）
+  if (shop['住所']) {
+    html += `<div class="detail-map" id="detail-map"></div>`;
+  }
+
+  // 写真表示
+  if (shop['地図写真URL']) {
+    html += `<img class="detail-photo" src="${escapeHtml(shop['地図写真URL'])}" alt="写真" onerror="this.style.display='none'">`;
+  }
+
+  // アクションボタン
+  html += `<div class="detail-actions">`;
+
+  if (!isDone) {
+    html += `<button class="btn btn-accent" onclick="openDoneModal()">✅ このお店に行った！</button>`;
+  } else {
+    html += `<button class="btn btn-primary" onclick="openEditModal()">✏️ 記録を編集</button>`;
+  }
+
+  html += `<button class="btn btn-outline" onclick="undoStatus()" style="margin-top:10px;">
+    ${isDone ? '📋 行きたいに戻す' : ''}
+  </button>`;
+
+  html += `<button class="btn btn-danger" onclick="deleteShop(${shop.row})" style="margin-top:10px;">🗑 削除する</button>`;
+  html += `</div>`;
+
+  content.innerHTML = html;
+
+  // ページ表示
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-detail').classList.add('active');
+
+  // 地図初期化
+  if (shop['住所']) {
+    setTimeout(() => initMap(shop['住所']), 100);
+  }
+}
+
+function goBackFromDetail() {
+  if (currentDetailFrom === 'genre-list') {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-genre-list').classList.add('active');
+  } else {
+    showPage(currentDetailFrom);
+  }
+}
+
+// === 地図（Leaflet + Nominatim） ===
+async function initMap(address) {
+  const mapEl = document.getElementById('detail-map');
+  if (!mapEl) return;
+
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+    const data = await res.json();
+
+    if (data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lon = parseFloat(data[0].lon);
+      const map = L.map('detail-map').setView([lat, lon], 16);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+      L.marker([lat, lon]).addTo(map);
+    } else {
+      mapEl.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">地図を表示できませんでした</p>';
+    }
+  } catch (e) {
+    mapEl.innerHTML = '<p style="padding:20px;text-align:center;color:#999;">地図の読み込みに失敗しました</p>';
+  }
+}
+
+// === 新規登録 ===
+async function addShop() {
+  const name = document.getElementById('add-name').value.trim();
+  const genre = document.getElementById('add-genre').value;
+  const area = document.getElementById('add-area').value.trim();
+  const address = document.getElementById('add-address').value.trim();
+  const memo = document.getElementById('add-memo').value.trim();
+
+  if (!name) { showToast('店名を入力してください'); return; }
+  if (!genre) { showToast('ジャンルを選択してください'); return; }
+
+  try {
+    showToast('登録中...');
+    const res = await fetchAPI({
+      action: 'add',
+      '店名': name,
+      'ジャンル': genre,
+      'エリア': area,
+      'ステータス': '行きたい',
+      '住所': address,
+      'メモ': memo
+    }, 'POST');
+
+    if (res.success) {
+      showToast('登録しました！');
+      // フォームリセット
+      document.getElementById('add-name').value = '';
+      document.getElementById('add-genre').value = '';
+      document.getElementById('add-area').value = '';
+      document.getElementById('add-address').value = '';
+      document.getElementById('add-memo').value = '';
+      await loadData();
+      showPage('want');
+    }
+  } catch (e) {
+    showToast('登録に失敗しました');
+  }
+}
+
+// === 行った！モーダル ===
+function openDoneModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('done-date').value = today;
+  document.getElementById('done-memo').value = currentShop['メモ'] || '';
+  document.getElementById('done-photo').value = '';
+  currentRating = 0;
+  updateRatingStars('done-rating', 0);
+  openModal('modal-done');
+}
+
+async function submitDone() {
+  if (!currentShop) return;
+
+  const date = document.getElementById('done-date').value;
+  const memo = document.getElementById('done-memo').value.trim();
+  const photo = document.getElementById('done-photo').value.trim();
+  const rating = '★'.repeat(currentRating) || '';
+
+  try {
+    showToast('記録中...');
+    const res = await fetchAPI({
+      action: 'update',
+      row: currentShop.row,
+      'ステータス': '行った',
+      '訪問日': date,
+      '評価': rating,
+      'メモ': memo,
+      '地図写真URL': photo
+    }, 'POST');
+
+    if (res.success) {
+      showToast('記録しました！');
+      closeModal('modal-done');
+      await loadData();
+      showPage('done');
+    }
+  } catch (e) {
+    showToast('記録に失敗しました');
+  }
+}
+
+// === 編集モーダル ===
+function openEditModal() {
+  if (!currentShop) return;
+
+  const starCount = (currentShop['評価'] || '').length;
+  currentEditRating = starCount;
+  updateRatingStars('edit-rating', starCount);
+  document.getElementById('edit-memo').value = currentShop['メモ'] || '';
+  document.getElementById('edit-photo').value = currentShop['地図写真URL'] || '';
+  openModal('modal-edit');
+}
+
+async function submitEdit() {
+  if (!currentShop) return;
+
+  const memo = document.getElementById('edit-memo').value.trim();
+  const photo = document.getElementById('edit-photo').value.trim();
+  const rating = '★'.repeat(currentEditRating) || '';
+
+  try {
+    showToast('更新中...');
+    const res = await fetchAPI({
+      action: 'update',
+      row: currentShop.row,
+      '評価': rating,
+      'メモ': memo,
+      '地図写真URL': photo
+    }, 'POST');
+
+    if (res.success) {
+      showToast('更新しました！');
+      closeModal('modal-edit');
+      await loadData();
+      showDetail(currentShop.row);
+    }
+  } catch (e) {
+    showToast('更新に失敗しました');
+  }
+}
+
+// === ステータスを戻す ===
+async function undoStatus() {
+  if (!currentShop) return;
+  const isDone = currentShop['ステータス'] === '行った';
+  if (!isDone) return;
+
+  if (!confirm('「行きたい」に戻しますか？')) return;
+
+  try {
+    showToast('更新中...');
+    const res = await fetchAPI({
+      action: 'update',
+      row: currentShop.row,
+      'ステータス': '行きたい',
+      '訪問日': '',
+      '評価': ''
+    }, 'POST');
+
+    if (res.success) {
+      showToast('行きたいに戻しました');
+      await loadData();
+      showPage('want');
+    }
+  } catch (e) {
+    showToast('更新に失敗しました');
+  }
+}
+
+// === 削除 ===
+async function deleteShop(row) {
+  if (!confirm('このお店を削除しますか？')) return;
+
+  try {
+    showToast('削除中...');
+    const res = await fetchAPI({
+      action: 'delete',
+      row: row
+    }, 'POST');
+
+    if (res.success) {
+      showToast('削除しました');
+      await loadData();
+      goBackFromDetail();
+    }
+  } catch (e) {
+    showToast('削除に失敗しました');
+  }
+}
+
+// === 評価の★ ===
+function setRating(n) {
+  currentRating = n;
+  updateRatingStars('done-rating', n);
+}
+
+function setEditRating(n) {
+  currentEditRating = n;
+  updateRatingStars('edit-rating', n);
+}
+
+function updateRatingStars(containerId, n) {
+  const stars = document.querySelectorAll(`#${containerId} .rating-star`);
+  stars.forEach((star, i) => {
+    star.classList.toggle('active', i < n);
+  });
+}
+
+// === モーダル操作 ===
+function openModal(id) {
+  document.getElementById(id).classList.add('active');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+// === ジャンルプルダウン（登録フォーム用） ===
+function populateGenreSelect() {
+  const select = document.getElementById('add-genre');
+  const current = select.value;
+  select.innerHTML = '<option value="">選択してください</option>';
+  genres.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g;
+    select.appendChild(opt);
+  });
+  select.value = current;
+}
+
+// === 日付フォーマット ===
+function formatDate(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}`;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+// === HTMLエスケープ ===
+function escapeHtml(str) {
+  if (!str) return '';
+  const s = String(str);
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// === トースト通知 ===
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
